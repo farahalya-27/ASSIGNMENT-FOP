@@ -19,4 +19,8 @@ class Employee {
     public String getRole() { return role; }
     public String getPassword() { return password; }
     public String getOutlet() { return outlet; }
+// Convert to CSV string: "ID,Name,Pass,Role,Outlet"
+    public String toCSV() {
+        return id + "," + name + "," + password + "," + role + "," + outlet;
+    }
 }
