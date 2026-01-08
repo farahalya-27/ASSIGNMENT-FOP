@@ -1,3 +1,5 @@
+package storesystem;
+
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
@@ -97,8 +99,8 @@ public class StoreSystem {
         String choice = sc.nextLine();
 
         switch (choice) {
-            case "1": ClockIn(); break;
-            case "2": ClockOut(); break;
+            case "1": clockIn(); break;
+            case "2": clockOut(); break;
             case "3":
                 if (currentUser.getRole().equalsIgnoreCase("Manager")) {
                     registerEmployee();
@@ -254,7 +256,6 @@ private static void showStockMenu() {
         } catch (Exception e) {
             System.out.println("Error loading data.");
             }
-        }
 loadStock();
     }
 //load stock
@@ -402,7 +403,7 @@ loadStock();
         totalModels++;
 
         System.out.print("Model: " + s.getModel() + " – Counted: ");
-        int counted = Integer.parseInt(scanner.nextLine());
+        int counted = Integer.parseInt(sc.nextLine());
 
         System.out.println("Store Record: " + s.getQuantity());
 
@@ -431,15 +432,15 @@ loadStock();
     private static void stockIn() {
         System.out.println("\n=== Stock In ===");
         System.out.print("From (HQ / Other Outlet): ");
-        String from = scanner.nextLine();
+        String from = sc.nextLine();
         String currentOutlet = currentUser.getOutlet();
         int totalQty = 0;
 
         while (true) {
             System.out.print("Enter Model Name: ");
-            String model = scanner.nextLine();
+            String model = sc.nextLine();
             System.out.print("Quantity: ");
-            int qty = Integer.parseInt(scanner.nextLine());
+            int qty = Integer.parseInt(sc.nextLine());
 
             boolean found = false;
             for (Stock s : stocks) {
@@ -458,7 +459,7 @@ loadStock();
             totalQty += qty;
 
             System.out.print("Add more models? (Y/N): ");
-            if (!scanner.nextLine().equalsIgnoreCase("Y")) break;
+            if (!sc.nextLine().equalsIgnoreCase("Y")) break;
         }
 
         saveStock();
@@ -470,15 +471,15 @@ loadStock();
     private static void stockOut() {
         System.out.println("\n=== Stock Out ===");
         System.out.print("To (Outlet / Customer): ");
-        String to = scanner.nextLine();
+        String to = sc.nextLine();
         String currentOutlet = currentUser.getOutlet();
         int totalQty = 0;
 
         while (true) {
             System.out.print("Enter Model Name: ");
-            String model = scanner.nextLine();
+            String model = sc.nextLine();
             System.out.print("Quantity: ");
-            int qty = Integer.parseInt(scanner.nextLine());
+            int qty = Integer.parseInt(sc.nextLine());
 
             boolean modelFound = false;
             for (Stock s : stocks) {
@@ -495,7 +496,7 @@ loadStock();
             }
 
             System.out.print("Add more models? (Y/N): ");
-            if (!scanner.nextLine().equalsIgnoreCase("Y")) break;
+            if (!sc.nextLine().equalsIgnoreCase("Y")) break;
         }
 
         saveStock();
