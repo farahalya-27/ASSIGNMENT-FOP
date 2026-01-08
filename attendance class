@@ -1,0 +1,32 @@
+//Attendance
+class Attendance {
+    private String employeeId;
+    private LocalDate date;
+    private LocalTime clockIn;
+    private LocalTime clockOut;
+    private String outlet; 
+
+    public Attendance(String employeeId, LocalDate date, LocalTime clockIn, LocalTime clockOut, String outlet) {
+        this.employeeId = employeeId;
+        this.date = date;
+        this.clockIn = clockIn;
+        this.clockOut = clockOut;
+        this.outlet = outlet;
+    }
+
+
+    public String getEmployeeId() { return employeeId; }
+    public LocalDate getDate() { return date; }
+    public LocalTime getClockIn() { return clockIn; }
+    public LocalTime getClockOut() { return clockOut; }
+    public String getOutlet() { return outlet; }
+
+    public void setClockOut(LocalTime time) {
+        this.clockOut = time;
+    }
+
+    public String toCSV() {
+        return employeeId + "," + date + "," + clockIn + "," +
+               (clockOut == null ? "null" : clockOut) + "," + outlet;
+    }
+}
