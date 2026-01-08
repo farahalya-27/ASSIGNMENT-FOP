@@ -1,0 +1,25 @@
+//3.stock class
+
+public class Stock {
+    private String model;
+    private int quantity;
+    private String outlet;
+
+    public Stock(String model, int quantity, String outlet) {
+        this.model = model;
+        this.quantity = quantity;
+        this.outlet = outlet;
+    }
+
+    public String getModel() { return model; }
+    public int getQuantity() { return quantity; }
+    public String getOutlet() { return outlet; }
+
+    public void setQuantity(int quantity) {
+        this.quantity = quantity;
+    }
+
+    public String toCSV() {
+        return model + "," + quantity + "," + outlet;
+    }
+}
