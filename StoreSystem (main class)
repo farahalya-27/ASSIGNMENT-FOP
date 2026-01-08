@@ -1,0 +1,525 @@
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.PrintWriter;
+
+import java.time.Duration;
+import java.time.LocalDate;
+import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Scanner;
+
+//Main System
+public class StoreSystem {
+    private static final String EMPLOYEE_FILE = "employee.csv";
+    private static final String OUTLET_FILE = "outlet.csv";
+    private static final String ATTENDANCE_FILE = "attendance.csv";
+    private static final String STOCK_FILE = "stock.csv";
+
+    // Memory Storage
+    private static List<Employee> employees = new ArrayList<>();
+    private static List<Attendance> attendanceLogs = new ArrayList<>();
+    private static Map<String, String> outletMap = new HashMap<>();
+    private static List<Stock> stocks = new ArrayList<>();
+
+    private static Scanner sc = new Scanner(System.in);
+    private static Employee currentUser = null;
+//Main
+    public static void main(String[] args) {
+        loadData();
+
+    System.out.println("Loaded employees: " + employees.size());
+
+         while (true) {
+            if (currentUser == null) {
+                loginMenu();
+            } else {
+                mainMenu();
+            }
+        }
+    }
+    //Login
+    private static void loginMenu() {
+
+        System.out.println("\n=== GOLDENHOUR STORE SYSTEM ===");
+        System.out.println("1. Login");
+        System.out.println("2. Exit");
+        System.out.print("Select: ");
+        String choice = sc.nextLine();
+
+        if (choice.equals("1")) login();
+        else if (choice.equals("2")) System.exit(0);
+        else System.out.println("Invalid option.");
+    }
+
+    private static void login() {
+        System.out.println("\n=== Employee Login ==="); 
+        System.out.print("Enter User ID: ");
+        String id = sc.nextLine().trim();
+        System.out.print("Enter Password: ");
+        String pass = sc.nextLine().trim();
+
+        for (Employee e : employees) {
+           if (e.getId().equalsIgnoreCase(id)
+                    && e.getPassword().equals(pass)) {
+
+                currentUser = e;
+                String code = id.substring(0, 3);
+                System.out.println("\nLogin Successful!");
+                System.out.println("Welcome, " + e.getName() + " (" + code + ")");
+                return;
+        }
+    }
+        System.out.println("Login Failed: Invalid User ID or Password.");
+}
+    private static void logout() {
+        currentUser = null;
+        System.out.println("Logged out successfully.");
+    }
+
+     //Menu
+    private static void mainMenu() {
+        System.out.println("\n=== Main Menu (" + currentUser.getName() + ") ===");
+        System.out.println("1. Clock In");
+        System.out.println("2. Clock Out");
+
+        if (currentUser.getRole().equalsIgnoreCase("Manager")) {
+            System.out.println("3. Register New Employee");
+        }
+        System.out.println("4. Stock Management");
+        System.out.println("5. Logout");
+        System.out.print("Select: ");
+        String choice = sc.nextLine();
+
+        switch (choice) {
+            case "1": ClockIn(); break;
+            case "2": ClockOut(); break;
+            case "3":
+                if (currentUser.getRole().equalsIgnoreCase("Manager")) {
+                    registerEmployee();
+                } else {
+                    System.out.println("Unauthorized.");
+                }
+                break;
+            case "4": showStockMenu(); break;
+            case "5": logout(); break;
+            default: System.out.println("Invalid option.");
+        }
+    }
+
+    //Register
+    private static void registerEmployee() {
+        System.out.println("\n=== Register New Employee ==="); 
+        
+        System.out.print("Enter Employee Name: ");
+        String name = sc.nextLine();
+        
+        String id;
+        String outlet;
+
+        while (true) {
+  System.out.print("Enter Employee ID (e.g. C6013): ");
+            id = sc.nextLine().trim();
+
+            boolean exists = false;
+            for (Employee e : employees) {
+                if (e.getId().equalsIgnoreCase(id)) exists = true;
+            }
+            if (exists) {
+                System.out.println("Employee ID already exists.");
+                continue;
+            }
+
+            String code = id.substring(0, 3);
+            if (outletMap.containsKey(code)) {
+                outlet = code + " (" + outletMap.get(code) + ")";
+                break;
+            } else {
+                System.out.println("Invalid outlet code.");
+            }
+        }
+        System.out.print("Set Role (Part-time/Full-time): ");
+        String role = sc.nextLine();
+
+        System.out.print("Set Password: ");
+        String pass = sc.nextLine();
+
+        employees.add(new Employee(id, name, role, pass, outlet));
+        saveEmployees();
+
+        System.out.println("Employee successfully registered!");
+        System.out.println("Assigned to: " + outlet);
+    }
+
+    //Attendance
+    private static void clockIn() {
+        LocalDate today = LocalDate.now();
+        
+        for (Attendance a : attendanceLogs) {
+            if (a.getEmployeeId().equals(currentUser.getId()) && a.getDate().equals(today) && a.getClockOut() == null) {
+                System.out.println("You are already clocked in.");
+                return;
+            }
+        }
+
+        LocalTime now = LocalTime.now();
+        Attendance log = new Attendance(currentUser.getId(), today, LocalTime.now, null, currentUser.getOutlet());
+        attendanceLogs.add(log);
+        saveAttendance();
+        System.out.println("\nClock In Successful!");
+        displayAttendance(log);
+    }
+
+    private static void clockOut() {
+        LocalDate today = LocalDate.now();
+
+        for (Attendance a : attendanceLogs) {
+            if (a.getEmployeeId().equals(currentUser.getId())
+                    && a.getDate().equals(today)
+                    && a.getClockOut() == null) {
+
+                 a.setClockOut(LocalTime.now());
+                saveAttendance();
+
+                 Duration d = Duration.between(a.getClockIn(), a.getClockOut());
+                double hours = d.toMinutes() / 60.0;
+
+                System.out.println("\nClock Out Successful!");
+                displayAttendance(a);
+                System.out.printf("Total Hours Worked: %.1f hours%n", hours);
+                return;
+            }
+        }
+        System.out.println("No active clock-in record found.");
+    }
+   private static void displayAttendance(Attendance a) {
+        System.out.println("Employee ID: " + currentUser.getId());
+        System.out.println("Name: " + currentUser.getName());
+        System.out.println("Outlet: " + a.getOutlet());
+        System.out.println("Date: " + a.getDate());
+        System.out.println("Time: " + formatTime(
+                a.getClockOut() == null ? a.getClockIn() : a.getClockOut())); 
+    }
+
+    // feature stock menu method 
+private static void showStockMenu() {
+    System.out.println("\n=== STOCK MANAGEMENT ===");
+    System.out.println("1. Morning Stock Count");
+    System.out.println("2. Night Stock Count");
+    System.out.println("3. Stock In");
+    System.out.println("4. Stock Out");
+    System.out.println("5. Back");
+    System.out.print("Select: ");
+
+    switch (sc.nextLine()) {
+        case "1": stockCount("Morning"); break;
+        case "2": stockCount("Night"); break;
+        case "3": stockIn(); break;
+        case "4": stockOut(); break;
+        case "5": return;
+    }
+}
+
+
+     //File Handling
+    private static void loadData() {
+        try {
+           //Load outlets
+            Scanner oSc = new Scanner(new File(OUTLET_FILE));
+            while (oSc.hasNextLine()) {
+                String[] p = oSc.nextLine().split(",");
+                outletMap.put(p[0].trim(), p[1].trim());
+            }
+            oSc.close();
+
+            //Load employees
+            Scanner eSc = new Scanner(new File(EMPLOYEE_FILE));
+            while (eSc.hasNextLine()) {
+                String[] p = eSc.nextLine().split(",");
+
+                String id = p[0].trim();
+                String name = p[1].trim();
+                String role = p[2].trim();
+                String pass = p[3].trim();
+
+                String code = id.substring(0, 3);
+                String outlet = code + " (" + outletMap.get(code) + ")";
+               employees.add(new Employee(id, name, role, pass, outlet));
+            }            eSc.close();
+        } catch (Exception e) {
+            System.out.println("Error loading data.");
+            }
+        }
+loadStock();
+    }
+//load stock
+ // Load stock from model.csv based on the current user's outlet column
+    private static void loadStock() {
+        stocks.clear(); // Clear existing list to prevent duplicates
+        if (currentUser == null) return;
+
+        File file = new File("model.csv");
+        if (!file.exists()) return;
+
+        try (Scanner fs = new Scanner(file)) {
+            if (!fs.hasNextLine()) return;
+
+            // 1. Find which column belongs to this user's outlet
+            String headerLine = fs.nextLine();
+            String[] headers = headerLine.split(",");
+            int outletColumnIndex = -1;
+            String userOutletCode = currentUser.getOutlet().split(" ")[0];
+
+            for (int i = 0; i < headers.length; i++) {
+                if (headers[i].trim().equalsIgnoreCase(userOutletCode)) {
+                    outletColumnIndex = i;
+                    break;
+                }
+            }
+
+            if (outletColumnIndex == -1) {
+                System.out.println("Error: Column for " + userOutletCode + " not found in model.csv");
+                return;
+            }
+
+            // 2. Load the models and the quantities from that specific column
+            while (fs.hasNextLine()) {
+                String line = fs.nextLine();
+                if (line.trim().isEmpty()) continue;
+                String[] parts = line.split(",");
+                String modelName = parts[0];
+                int qty = Integer.parseInt(parts[outletColumnIndex].trim());
+                
+                stocks.add(new Stock(modelName, qty, userOutletCode));
+            }
+        } catch (Exception e) {
+            System.out.println("Error loading stock: " + e.getMessage());
+        }
+    }
+
+    // Save stock back to the specific column in model.csv
+    private static void saveStock() {
+        File file = new File("model.csv");
+        List<String> updatedLines = new ArrayList<>();
+
+        try (Scanner fs = new Scanner(file)) {
+            if (!fs.hasNextLine()) return;
+
+            String header = fs.nextLine();
+            updatedLines.add(header);
+            String[] headers = header.split(",");
+            int outletColumnIndex = -1;
+            String userOutletCode = currentUser.getOutlet().split(" ")[0];
+
+            for (int i = 0; i < headers.length; i++) {
+                if (headers[i].trim().equalsIgnoreCase(userOutletCode)) {
+                    outletColumnIndex = i;
+                    break;
+                }
+            }
+
+            while (fs.hasNextLine()) {
+                String line = fs.nextLine();
+                String[] parts = line.split(",");
+                String modelInFile = parts[0];
+
+                for (Stock s : stocks) {
+                    if (s.getModel().equalsIgnoreCase(modelInFile)) {
+                        parts[outletColumnIndex] = String.valueOf(s.getQuantity());
+                        break;
+                    }
+                }
+                updatedLines.add(String.join(",", parts));
+            }
+        } catch (Exception e) {
+            System.out.println("Error reading master file: " + e.getMessage());
+            return;
+        }
+
+        try (PrintWriter pw = new PrintWriter(new FileWriter("model.csv"))) {
+            for (String l : updatedLines) pw.println(l);
+        } catch (IOException e) {
+            System.out.println("Error writing to model.csv");
+        }
+    }
+    private static void saveEmployees() {
+        try (PrintWriter pw = new PrintWriter(new FileWriter(EMPLOYEE_FILE))) {
+            for (Employee e : employees) {
+               pw.println(
+                    e.getId() + "," +
+                    e.getName() + "," +
+                    e.getRole() + "," +
+                    e.getPassword()
+                );
+            }
+        } catch (IOException e) {
+            System.out.println("Error saving employees.");
+        }
+    }
+
+    private static void saveAttendance() {
+        try (PrintWriter printWriter = new PrintWriter(new FileWriter(ATTENDANCE_FILE))) {
+            for (Attendance a : attendanceLogs) {
+                printWriter.println(a.toCSV());
+            }
+        } catch (IOException e) {
+            System.out.println("Error saving attendance.");
+        }
+    }
+       private static String formatTime(LocalTime t) {
+        return t.format(DateTimeFormatter.ofPattern("hh:mm a"))
+                .toLowerCase()
+                .replace("am", "a.m.")
+                .replace("pm", "p.m.");
+    }
+
+    private static void stockCount(String type) {
+    // 1. Load the stock right now, because now we finally know who the currentUser is
+    loadStock(); 
+
+    int correct = 0;
+    int mismatch = 0;
+    int totalModels = 0;
+
+    System.out.println("\n=== " + type + " Stock Count ===");
+    System.out.println("Date: " + LocalDate.now());
+    System.out.println("Time: " + formatTime(LocalTime.now()));
+    
+    // Safety check: if stocks is still empty after loading, model.csv column is likely wrong
+    if (stocks.isEmpty()) {
+        System.out.println("Error: No models found for outlet " + currentUser.getOutlet());
+        return;
+    }
+
+    for (Stock s : stocks) {
+        // Since we load stock specifically for the user's outlet in loadStock(),
+        // we don't necessarily need the 'if' outlet check here, but it's safe to keep.
+        totalModels++;
+
+        System.out.print("Model: " + s.getModel() + " – Counted: ");
+        int counted = Integer.parseInt(scanner.nextLine());
+
+        System.out.println("Store Record: " + s.getQuantity());
+
+        if (counted == s.getQuantity()) {
+            System.out.println("Stock tally correct.\n");
+            correct++;
+        } else {
+            int diff = Math.abs(counted - s.getQuantity());
+            System.out.println("! Mismatch detected (" + diff + " unit difference)\n");
+            mismatch++;
+        }
+    }
+
+    // ===== SUMMARY =====
+    System.out.println("Total Models Checked: " + totalModels);
+    System.out.println("Tally Correct: " + correct);
+    System.out.println("Mismatches: " + mismatch);
+
+    if (mismatch > 0) {
+        System.out.println(type + " stock count completed. Warning: Please verify stock.");
+    } else {
+        System.out.println(type + " stock count completed.");
+    }
+}
+// --- FEATURE: STOCK IN ---
+    private static void stockIn() {
+        System.out.println("\n=== Stock In ===");
+        System.out.print("From (HQ / Other Outlet): ");
+        String from = scanner.nextLine();
+        String currentOutlet = currentUser.getOutlet();
+        int totalQty = 0;
+
+        while (true) {
+            System.out.print("Enter Model Name: ");
+            String model = scanner.nextLine();
+            System.out.print("Quantity: ");
+            int qty = Integer.parseInt(scanner.nextLine());
+
+            boolean found = false;
+            for (Stock s : stocks) {
+                if (s.getModel().equalsIgnoreCase(model) && s.getOutlet().equals(currentOutlet)) {
+                    s.setQuantity(s.getQuantity() + qty);
+                    found = true;
+                    break;
+                }
+            }
+            
+            // If model doesn't exist for this outlet yet, add it
+            if (!found) {
+                stocks.add(new Stock(model, qty, currentOutlet));
+            }
+            
+            totalQty += qty;
+
+            System.out.print("Add more models? (Y/N): ");
+            if (!scanner.nextLine().equalsIgnoreCase("Y")) break;
+        }
+
+        saveStock();
+        
+        generateReceipt("Stock In", from, currentOutlet, totalQty, currentUser.getName());
+    }
+
+    // --- FEATURE: STOCK OUT ---
+    private static void stockOut() {
+        System.out.println("\n=== Stock Out ===");
+        System.out.print("To (Outlet / Customer): ");
+        String to = scanner.nextLine();
+        String currentOutlet = currentUser.getOutlet();
+        int totalQty = 0;
+
+        while (true) {
+            System.out.print("Enter Model Name: ");
+            String model = scanner.nextLine();
+            System.out.print("Quantity: ");
+            int qty = Integer.parseInt(scanner.nextLine());
+
+            boolean modelFound = false;
+            for (Stock s : stocks) {
+                if (s.getModel().equalsIgnoreCase(model) && s.getOutlet().equals(currentOutlet)) {
+                    s.setQuantity(s.getQuantity() - qty);
+                    totalQty += qty;
+                    modelFound = true;
+                    break;
+                }
+            }
+
+            if (!modelFound) {
+                System.out.println("Error: Model not found in this outlet.");
+            }
+
+            System.out.print("Add more models? (Y/N): ");
+            if (!scanner.nextLine().equalsIgnoreCase("Y")) break;
+        }
+
+        saveStock();
+        
+        generateReceipt("Stock Out", currentOutlet, to, totalQty, currentUser.getName());
+    }
+
+    // --- HELPER: GENERATE RECEIPT ---
+    private static void generateReceipt(String type, String from, String to, int totalQty, String employee) {
+        String fileName = "stock_receipt_" + LocalDate.now() + ".txt";
+        try (PrintWriter pw = new PrintWriter(new FileWriter(fileName, true))) {
+            pw.println("=== " + type.toUpperCase() + " ===");
+            pw.println("Date: " + LocalDate.now());
+            pw.println("Time: " + formatTime(LocalTime.now()));
+            pw.println("From: " + from);
+            pw.println("To: " + to);
+            pw.println("Total Quantity: " + totalQty);
+            pw.println("Handled by: " + employee);
+            pw.println("----------------------------");
+            
+            System.out.println("Stock updated successfully.");
+            System.out.println("Receipt generated: " + fileName);
+        } catch (IOException e) {
+            System.out.println("Error generating receipt file.");
+        }
+    }
+}
