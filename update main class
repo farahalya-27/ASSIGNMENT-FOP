@@ -301,7 +301,8 @@ public class StoreSystem {
         String from = sc.nextLine();
         String currentOutlet = currentUser.getOutlet();
         int totalQty = 0;
-
+        
+        Map<String, Integer> receivedModels = new LinkedHashMap<>();
         while (true) {
             System.out.print("Enter Model Name: ");
             String model = sc.nextLine();
@@ -316,6 +317,8 @@ public class StoreSystem {
                     break;
                 }
             }
+           
+            receivedModels.put(model, receivedModels.getOrDefault(model, 0) + qty);
             
             totalQty += qty;
 
@@ -324,6 +327,17 @@ public class StoreSystem {
         }
 
         saveStock();
+        // Display output
+        System.out.println("\nFrom: " + from);
+        System.out.println("To: " + currentOutlet);
+        System.out.println("Models Received:");
+        
+        for (Map.Entry<String, Integer> entry : receivedModels.entrySet()) {
+            System.out.println("- " + entry.getKey() + " (Quantity: " + entry.getValue() + ")");
+        }
+        System.out.println("Total Quantity: " + totalQty);
+        System.out.println("Model quantities updated successfully.");
+        System.out.println("Stock In recorded.");
         
         generateReceipt("Stock In", from, currentOutlet, totalQty, currentUser.getName());
     }
@@ -336,7 +350,7 @@ public class StoreSystem {
         String to = sc.nextLine();
         String currentOutlet = currentUser.getOutlet();
         int totalQty = 0;
-
+        
         while (true) {
             System.out.print("Enter Model Name: ");
             String model = sc.nextLine();
@@ -461,8 +475,55 @@ public class StoreSystem {
     }
 
     private static void saveStock() {
-        // same logic you already implemented earlier (kept short here)
+
+    File file = new File("model.csv");
+    List<String[]> rows = new ArrayList<>();
+
+    try (Scanner sc = new Scanner(file)) {
+        while (sc.hasNextLine()) {
+            rows.add(sc.nextLine().split(","));
+        }
+    } catch (Exception e) {
+        System.out.println("Error reading model.csv");
+        return;
     }
+
+    String userOutletCode = currentUser.getOutlet().split(" ")[0];
+
+    // Find outlet column index
+    String[] header = rows.get(0);
+    int outletIndex = -1;
+
+    for (int i = 0; i < header.length; i++) {
+        if (header[i].equalsIgnoreCase(userOutletCode)) {
+            outletIndex = i;
+            break;
+        }
+    }
+
+    if (outletIndex == -1) return;
+
+    // Update quantities
+    for (int i = 1; i < rows.size(); i++) {
+        String modelName = rows.get(i)[0];
+
+        for (Stock s : stocks) {
+            if (s.getModel().equalsIgnoreCase(modelName)) {
+                rows.get(i)[outletIndex] = String.valueOf(s.getQuantity());
+            }
+        }
+    }
+
+    // Write back
+    try (PrintWriter pw = new PrintWriter(new FileWriter(file))) {
+        for (String[] row : rows) {
+            pw.println(String.join(",", row));
+        }
+    } catch (Exception e) {
+        System.out.println("Error saving stock");
+    }
+}
+
 
     private static void saveEmployees() {
         try (PrintWriter pw = new PrintWriter(new FileWriter(EMPLOYEE_FILE))) {
@@ -510,8 +571,13 @@ private static void performNewSale() {
     String time = formatTime(LocalTime.now());
     System.out.print("Customer Name: ");
     String customer = sc.nextLine();
+    
+    double subtotal = 0;
+    String choice = null;
+    
     System.out.println("Item(s) Purchased:");
-    System.out.print("Enter Model: ");
+    do {
+    System.out.print("Model Name: ");
     String model = sc.nextLine();
     
     // Find model in the 'stocks' list already loaded by the system
@@ -523,56 +589,72 @@ private static void performNewSale() {
         }
     }
 
-    if (target != null && target.getQuantity() > 0) {
-        System.out.print("Enter Quantity: ");
-        int qty = Integer.parseInt(sc.nextLine());
-        
-        if (target.getQuantity() >= qty) {
-            target.setQuantity(target.getQuantity() - qty);
-            double total = target.getPrice() * qty;
-            System.out.println("Unit Price: RM" + target.getPrice());
-
-            System.out.print("Enter Transaction Method: ");
-            String method = sc.nextLine();
-
-            // Auto-capture data from the logged-in session!
-            SaleRecord s = new SaleRecord(
-                LocalDate.now().toString(), 
-                formatTime(LocalTime.now()), 
-                customer, model, qty, total, method, 
-                currentUser.getName() // Captures current employee name
-            );
-            
-            salesHistory.add(s);
-            saveStock(); // Save update to model.csv
-            generateSalesReceipt(s);
-            System.out.println("\nTransaction successful.");
-            System.out.println("Sale recorded successfully.");
-            System.out.println("Model quantities updated successfully.");
-            System.out.println("Receipt generated: sales_" + LocalDate.now() + ".txt");
-
-        } else {
-            System.out.println("Insufficient stock!");
-        }
-    } else {
+    if (target == null) {
         System.out.println("Product not found in this outlet.");
+        continue;
+    }
+    
+    System.out.print("Enter Quantity: ");
+    int qty = Integer.parseInt(sc.nextLine());
+    
+    if (qty <= 0 || qty > target.getQuantity()) {
+        System.out.println("Insufficient stock!");
+        continue;
+    }
+    target.setQuantity(target.getQuantity() - qty);
+    double itemTotal = target.getPrice() * qty;
+    subtotal += itemTotal;
+    
+    SaleRecord s = new SaleRecord(
+        LocalDate.now().toString(), 
+        formatTime(LocalTime.now()), 
+        customer, model, qty, itemTotal, "", 
+        currentUser.getName() // Captures current employee name
+    );
+    salesHistory.add(s);
+    
+    System.out.println("Unit Price: RM" + target.getPrice());
+    System.out.print("\nAre there more items purchased? (Y/N): ");
+    choice = sc.nextLine();
+    } while(choice.equalsIgnoreCase("Y"));
+    
+    System.out.print("Enter transaction method: ");
+    String method = sc.nextLine();
+    System.out.println("Subtotal: RM" + subtotal);
+    System.out.println();
+
+// Update all the items from this transaction with method
+    for (SaleRecord s : salesHistory) {
+    if (s.getCustomerName().equals(customer) &&
+        s.getDate().equals(date) &&
+        s.getMethod().isEmpty()) {
+        s.setMethod(method);
+        generateSalesReceipt(s);
     }
 }
+    
+    saveStock(); // Save update to model.csv
+    System.out.println("\nTransaction"
+            + " successful.");
+    System.out.println("Sale Recorded Successfully!");
+    System.out.println("Model quantities updated successfully.");
+    System.out.println("Receipt generated: sales_" + LocalDate.now() + ".txt");
+} 
 
 // --- FEATURE: SEARCH STOCK ---
 private static void performStockSearch() {
     System.out.println("\n=== Search Stock Information ===");
-    System.out.println("Search Model Name: ");
+    System.out.print("Search Model Name: ");
     String modelName = sc.nextLine();
     System.out.print("Searching...\n");
-    
-    SearchInformation.searchStock(modelName, (ArrayList<Stock>) stocks);
+    System.out.println();
+    SearchInformation.searchStock(modelName, (ArrayList<Stock>) stocks, outletMap);
 }
 
 // --- FEATURE: SEARCH SALES ---
 private static void performSalesSearch() {
     System.out.println("\n=== Search Sales Information ===");
-    System.out.println("Search keyword (date/ customer name/ model name): ");
+    System.out.print("Search keyword (date/ customer name/ model name): ");
     String keyword = sc.nextLine();
     System.out.print("Searching...\n");
 
@@ -622,7 +704,7 @@ private static void sendDailyReport() {
     System.out.println("\n=== Automated Email System ===");
     System.out.println("Recipient: 24001391@siswa.um.edu.my");
     System.out.println("Subject: Daily Sales Report - " + today);
-    System.out.println("Body: Hello HQ, the total sales for " + today + " is RM" + String.format("%2.f", dailyTotal));
+    System.out.println("Body: Hello HQ, the total sales for " + today + " is RM" + String.format("%.2f", dailyTotal));
     System.out.println("Attach: [" + fileName + "]");
     System.out.println("Status: Email sent successfully at" + now.format(DateTimeFormatter.ofPattern("HH:mm:ss")));
     System.out.println("-------------------------------------\n");
