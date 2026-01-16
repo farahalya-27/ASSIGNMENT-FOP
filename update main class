@@ -294,12 +294,13 @@ public class StoreSystem {
     }
 
     private static void stockIn() {
+        loadStock();
         System.out.println("\n=== Stock In ===");
         System.out.println("Date: " + LocalDate.now());
         System.out.println("Time: " + formatTime(LocalTime.now()));
         System.out.print("From (HQ / Other Outlet): ");
         String from = sc.nextLine();
-        String currentOutlet = currentUser.getOutlet();
+        String currentOutlet = currentUser.getOutlet().split(" ")[0];
         int totalQty = 0;
         
         Map<String, Integer> receivedModels = new LinkedHashMap<>();
@@ -339,16 +340,18 @@ public class StoreSystem {
         System.out.println("Model quantities updated successfully.");
         System.out.println("Stock In recorded.");
         
+        saveStock();
         generateReceipt("Stock In", from, currentOutlet, totalQty, currentUser.getName());
     }
 
     private static void stockOut() {
+        loadStock();
         System.out.println("\n=== Stock Out ===");
         System.out.println("Date: " + LocalDate.now());
         System.out.println("Time: " + formatTime(LocalTime.now()));
         System.out.print("To (Outlet / Customer): ");
         String to = sc.nextLine();
-        String currentOutlet = currentUser.getOutlet();
+        String currentOutlet = currentUser.getOutlet().split(" ")[0];
         int totalQty = 0;
         
         while (true) {
@@ -360,6 +363,12 @@ public class StoreSystem {
             boolean modelFound = false;
             for (Stock s : stocks) {
                 if (s.getModel().equalsIgnoreCase(model) && s.getOutlet().equals(currentOutlet)) {
+                    if (s.getQuantity() < qty) {
+                        System.out.println("Error: Insufficient stock.");
+                        modelFound = true;
+                         break;
+                    }
+
                     s.setQuantity(s.getQuantity() - qty);
                     totalQty += qty;
                     modelFound = true;
