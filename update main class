@@ -87,7 +87,7 @@ public class StoreSystem {
         System.out.println("1. Clock In");
         System.out.println("2. Clock Out");
 
-        if (currentUser.getRole().equalsIgnoreCase("Manager")) { //untuk ignore uppercase and lowercase diff
+        if (currentUser.getRole().equalsIgnoreCase("Manager")) { //untuk manager only
             System.out.println("3. Register Employee");
             System.out.println("4. View Employee Performance Metrics");
             System.out.println("5. Close Store(Send Daily Report)");
